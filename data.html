@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="data.css">
+  <title>Users Information</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+
+<body>
+  <div id="dataForm">
+    <h1>Welcome to room</h1>
+    <ul id="user-list">
+    </ul>
+  </div>
+
+  <!-- Add a modal for displaying user details -->
+  <div id="userDetailsModal">
+    <div id="modalContent">
+      <!-- Close button for the modal -->
+      <span id="closeModal" style="float: right; cursor: pointer;">&times;</span>
+      <!-- User details content will be appended here -->
+    </div>
+  </div>
+
+  <script>
+    var socket = io();
+    const userDetails = {};
+
+    socket.on('UserList', (newUserList) => {
+      const userList = document.getElementById('user-list');
+      console.log(newUserList);
+
+      newUserList.forEach((user) => {
+        if (userDetails[user.email]) {
+          // If email already exists, update the Socket ID
+          if (userDetails[user.email].socketId !== user.socketId) {
+            userDetails[user.email].socketId = user.socketId;
+            // Update the corresponding li element text
+            const li = document.querySelector(`[data-email="${user.email}"]`);
+            if (li) {
+              li.textContent = `Email: ${user.email}, Socket ID: ${user.socketId}`;
+            }
+          }
+        } else {
+          // If email doesn't exist, create a new entry
+          userDetails[user.email] = {
+            email: user.email,
+            socketId: user.socketId
+          };
+
+          const li = document.createElement('li');
+          li.textContent = `Email: ${user.email}, Socket ID: ${user.socketId}`;
+          li.setAttribute('data-email', user.email); // Set a data attribute for future reference
+          userList.appendChild(li);
+
+          li.addEventListener('click', () => {
+            $.ajax({
+              type: 'POST',
+              url: '/api/users',
+              contentType: 'application/json',
+              data: JSON.stringify({ email: user.email }),
+              success: function (data) {
+                console.log('Received data:', data);
+
+                // Instead of alert, display data in a modal
+                const modalContent = document.getElementById('modalContent');
+
+                if (Array.isArray(data) && data.length > 0) {
+                  data.forEach((user) => {
+                    let content = `Email: ${user.email}<br>`;
+
+                    if (user.loginId) {
+                      content += `LoginID: ${user.loginId}<br>`;
+                    }
+
+                    if (user.firstName && user.lastName) {
+                      content += `Name: ${user.firstName} ${user.lastName}<br>`;
+                    }
+
+                    if (user.mobileNo) {
+                      content += `MobileNO: ${user.mobileNo}<br>`;
+                    }
+
+                    if (user.address && user.address.street && user.address.city) {
+                      content += `Address: ${user.address.street}, ${user.address.city}<br>`;
+                    }
+
+                    modalContent.innerHTML += content;
+                  });
+                  const modal = document.getElementById('userDetailsModal');
+                  modal.style.display = 'block';
+                  // Add event listener to close modal
+                  const closeModal = document.getElementById('closeModal');
+                  closeModal.addEventListener('click', () => {
+                    modal.style.display = 'none';
+                    // Clear modal content when closing
+                    modalContent.innerHTML = '';
+                  });
+                } else {
+                  console.error('Invalid data received:', data);
+                  alert("Invalid data received. See console for details.");
+                }
+              },
+              error: function (error) {
+                console.error('Error:', error);
+                alert("Failed to fetch details.");
+              }
+            });
+          });
+        }
+      });
+    });
+  </script>
+</body>
+
+</html>
